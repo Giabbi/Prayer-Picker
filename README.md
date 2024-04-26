@@ -1,2 +1,2 @@
-# Preayer-Picker
-Project made by Giancarlo
+# Prayer-Picker
+Project made by Giancarlo Ambrosino
