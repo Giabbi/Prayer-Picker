@@ -9,6 +9,7 @@ export function enter_login(event) {
 	login(email,password)
 	.then((isValid) => {
 		if (isValid == 'Invalid Email'||isValid == 'Invalid Password'){
+			$w('#enter').enable()
 			$w('#text1').show()
 			$w('#text1').text = isValid
 		}
