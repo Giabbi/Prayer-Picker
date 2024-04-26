@@ -5,15 +5,15 @@ const options = {
 }
 var crypto = require('crypto')
 
-export function login (email,password){
-  return wixData.query('Teachers')
+export function login (email,password){ // Function called in home.js
+  return wixData.query('Teachers') 
   .eq('email',email)
   .find(options)
   .then((results)=> {
-    if (results.items.length==0){
-      return 'Invalid Email'
+    if (results.items.length==0){ // Checks for valid class code
+      return 'Invalid Class'
     }
-    if (bcrypt.compareSync(password,results.items[0]['password'])){
+    if (bcrypt.compareSync(password,results.items[0]['password'])){ // Checks for valid password hash, if so then create session id
       let buffer = {
         "_id" : results.items[0]['_id'],
         "email" : results.items[0]['email'],
@@ -30,7 +30,7 @@ export function login (email,password){
   })
 }
 
-export function isvalid (id){
+export function isvalid (id){ // Check if the user is logged in for sensitive pages
   return wixData.query('Teachers')
   .eq ('sessionId',id)
   .find(options)
@@ -40,7 +40,7 @@ export function isvalid (id){
     else return false
   })
 }
-export function queryStudents(subject) {
+export function queryStudents(subject) { // FUnction called in students.js, queries students for repeater on frontend
     return wixData.query('Students')
     .eq ('schedule',subject)
     .find (options)
@@ -49,14 +49,14 @@ export function queryStudents(subject) {
     })
 }
 
-export function getDailyPrayer() {
+export function getDailyPrayer() { // Function called on students.js, scrapes the Church of England's website for daily prayers
   const url = 'https://www.churchofengland.org/prayer-and-worship/join-us-service-daily-prayer/todays-prayer';
   
-  return fetch(url)
+  return fetch(url) // Create HTTPS request
     .then(response => response.text())
     .then(body => {
       const $ = cheerio.load(body);
-      const dailyPrayer = $('#dailyprayer .inner p').first().text(); 
+      const dailyPrayer = $('#dailyprayer .inner p').first().text(); // Scrape the part with the daily prayer text and returns it to the frontend
       return dailyPrayer;
     })
     .catch(err => {
@@ -65,24 +65,25 @@ export function getDailyPrayer() {
     });
 }
 
-export function selectStudent(subject) {
+export function selectStudent(subject) { // Function called in students.js, picks random student and marks him accordingly
     return wixData.query("Students")
-    .eq("schedule", subject)
+    .eq("schedule", subject) // Select students in specific class
     .find(options)
     .then((results) => {
         let newList = []
         let notAbsent = []
         for(let i = 0; i < results.items.length; i++) {
-            if(!results.items[i]["hasSaidPrayer"] && !results.items[i]["isAbsent"]) newList.push(results.items[i])
+            // Create list with students who did not say the prayer and are not absent
+            if(!results.items[i]["hasSaidPrayer"] && !results.items[i]["isAbsent"]) newList.push(results.items[i])  
+            // Create list with students who are not absent
             if(!results.items[i]["isAbsent"]) notAbsent.push(results.items[i])
         }
         let pick = 0
-        if(newList.length == 0) {
+        if(newList.length == 0) { // If everyone has said the prayer then reset the list in the database
             return resetHasSaidPrayer(results.items)
-                .then((updates) => {
-                    console.log(updates)
-                    let pick = crypto.randomInt(0, results.items.length);
-                    let student = notAbsent[pick]
+                .then(() => {
+                    let pick = crypto.randomInt(0, notAbsent.length);
+                    let student = notAbsent[pick] // Pick a student that is not absent
                     let buffer = {
                         "_id": student["_id"],
                         "name": student["name"],
@@ -90,7 +91,7 @@ export function selectStudent(subject) {
                         "hasSaidPrayer": true,
                         "isAbsent": false
                     }
-                    return wixData.update("Students", buffer, options)
+                    return wixData.update("Students", buffer, options) // Mark the student that has said the prayer
                     .then(() => {
                         return student["name"]
                     })
@@ -98,7 +99,7 @@ export function selectStudent(subject) {
         }
         else {
             pick = crypto.randomInt(0, newList.length)
-            let student = newList[pick]
+            let student = newList[pick] // Pick from remaining students
             let buffer = {
                 "_id": student["_id"],
                 "name": student["name"],
@@ -106,7 +107,7 @@ export function selectStudent(subject) {
                 "hasSaidPrayer": true,
                 "isAbsent": false
             }
-            return wixData.update("Students", buffer, options)
+            return wixData.update("Students", buffer, options) // Mark the student that was just picked
             .then(() => {
                 return student["name"]
             })
@@ -114,7 +115,7 @@ export function selectStudent(subject) {
     })
 }
 
-export function resetHasSaidPrayer(students) {
+export function resetHasSaidPrayer(students) { // Reset the people that said the prayer in a specific class
     const updates = students.map(student => {
         return wixData.update("Students", {
             "_id": student._id,
@@ -127,8 +128,7 @@ export function resetHasSaidPrayer(students) {
     return Promise.all(updates);
 }
 
-export function markAbsent(student) {
-    console.log(student)
+export function markAbsent(student) { // Function called in students.js, marks absent students for the period
     return wixData.query("Students")
     .eq("name", student)
     .find(options)
@@ -144,7 +144,7 @@ export function markAbsent(student) {
     })
 }
 
-export function resetAbsence() {
+export function resetAbsence() { // Function called by wixJobs, every period resets absences
     return wixData.query("Students")
     .find(options)
     .then((results) => {
@@ -159,4 +159,29 @@ export function resetAbsence() {
     });
     return Promise.all(updates);
     })
+}
+
+export function resetValid() { // Function called by wixJobs, every hour resets old session IDs
+    const oneHourAgo = Date.now() - 60 * 60 * 1000; 
+    wixData.query('Teachers') 
+    .le('timestamp', oneHourAgo) 
+    .find(options)
+    .then(results => {
+      results.items.forEach(item => {
+        let buffer = {
+            "_id": item._id,
+            "email": item["email"],
+            "password": item["password"],
+            "sessionId": null,
+            "timestamp": null
+        }
+        wixData.update("Teachers", buffer, options)
+        .catch(err => {
+            console.error(`Error removing item ${item._id}: ${err}`);
+          });
+      });
+    })
+    .catch(err => {
+      console.error(`Error querying collection: ${err}`);
+    });
 }
