@@ -4,17 +4,17 @@ import {session} from 'wix-storage-frontend';
 
 export function enter_login(event) {
 	$w('#enter').disable()
-	let email=$w('#email').value
-	let password=$w('#password').value
+	let email= $w('#email').value
+	let password= $w('#password').value
 	login(email,password)
 	.then((isValid) => {
-		if (isValid == 'Invalid Email'||isValid == 'Invalid Password'){
+		if (isValid == 'Invalid Class Code' || isValid == 'Invalid Password'){
 			$w('#enter').enable()
 			$w('#text1').show()
 			$w('#text1').text = isValid
 		}
 		else {
-			session.setItem('id',isValid)
+			session.setItem('id', isValid)
 			wixLocation.to('/new-page')
 		}
 	})
