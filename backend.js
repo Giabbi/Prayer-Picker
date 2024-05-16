@@ -1,19 +1,23 @@
 import wixData from 'wix-data';
+import {fetch} from 'wix-fetch';
+import cheerio from 'cheerio';
+
 const bcrypt = require('bcrypt');
+var crypto = require('crypto');
+
 const options = {
   'suppressAuth':true
 }
-var crypto = require('crypto')
 
-export function login (email,password){ // Function called in home.js
+export function login (email, password){ // Function called in home.js
   return wixData.query('Teachers') 
-  .eq('email',email)
+  .eq('email', email)
   .find(options)
   .then((results)=> {
-    if (results.items.length==0){ // Checks for valid class code
+    if (results.items.length == 0){ // Checks for valid class code
       return 'Invalid Class'
     }
-    if (bcrypt.compareSync(password,results.items[0]['password'])){ // Checks for valid password hash, if so then create session id
+    if (bcrypt.compareSync(password, results.items[0]['password'])){ // Checks for valid password hash, if so then create session id
       let buffer = {
         "_id" : results.items[0]['_id'],
         "email" : results.items[0]['email'],
@@ -30,17 +34,18 @@ export function login (email,password){ // Function called in home.js
   })
 }
 
-export function isvalid (id){ // Check if the user is logged in for sensitive pages
-  return wixData.query('Teachers')
-  .eq ('sessionId',id)
-  .find(options)
-  .then ((results)=>{
+
+export function isValid (id){ // Check if the user is logged in for sensitive pages
+    return wixData.query('Teachers')
+    .eq ('sessionId',id)
+    .find(options)
+    .then ((results)=>{
     if (results.items[0]['sessionId'] == id && id != null && results.items[0]['sessionId'])
-      return true
-    else return false
-  })
+        return results.items[0]['email']
+    else return ' '
+    })
 }
-export function queryStudents(subject) { // FUnction called in students.js, queries students for repeater on frontend
+export function queryStudents(subject) { // Function called in students.js, queries students for repeater on frontend
     return wixData.query('Students')
     .eq ('schedule',subject)
     .find (options)
@@ -72,6 +77,13 @@ export function selectStudent(subject) { // Function called in students.js, pick
     .then((results) => {
         let newList = []
         let notAbsent = []
+        var period = 0
+        for (let i = 0; i < results.items.length; i++) { // Determine the period based on the stored array index
+            if (results.items[0]["schedule"][i] == subject) {
+                period = i
+                break
+            }
+        }
         for(let i = 0; i < results.items.length; i++) {
             // Create list with students who did not say the prayer and are not absent
             if(!results.items[i]["hasSaidPrayer"] && !results.items[i]["isAbsent"]) newList.push(results.items[i])  
@@ -80,15 +92,16 @@ export function selectStudent(subject) { // Function called in students.js, pick
         }
         let pick = 0
         if(newList.length == 0) { // If everyone has said the prayer then reset the list in the database
-            return resetHasSaidPrayer(results.items)
+            return resetHasSaidPrayer(results.items, period)
                 .then(() => {
                     let pick = crypto.randomInt(0, notAbsent.length);
                     let student = notAbsent[pick] // Pick a student that is not absent
+                    student["hasSaidPrayer"][period] = true // Set it true to just this period
                     let buffer = {
                         "_id": student["_id"],
                         "name": student["name"],
                         "schedule": student["schedule"],
-                        "hasSaidPrayer": true,
+                        "hasSaidPrayer": student["hasSaidPrayer"],
                         "isAbsent": false
                     }
                     return wixData.update("Students", buffer, options) // Mark the student that has said the prayer
@@ -100,11 +113,12 @@ export function selectStudent(subject) { // Function called in students.js, pick
         else {
             pick = crypto.randomInt(0, newList.length)
             let student = newList[pick] // Pick from remaining students
+            student["hasSaidPrayer"][period] = true
             let buffer = {
                 "_id": student["_id"],
                 "name": student["name"],
                 "schedule": student["schedule"],
-                "hasSaidPrayer": true,
+                "hasSaidPrayer": student["hasSaidPrayer"],
                 "isAbsent": false
             }
             return wixData.update("Students", buffer, options) // Mark the student that was just picked
@@ -115,17 +129,29 @@ export function selectStudent(subject) { // Function called in students.js, pick
     })
 }
 
-export function resetHasSaidPrayer(students) { // Reset the people that said the prayer in a specific class
+export function resetHasSaidPrayer(students, period) { // Reset the people that said the prayer in a specific class
     const updates = students.map(student => {
         return wixData.update("Students", {
+            student.hasSaidPrayer[period] = false
             "_id": student._id,
             "name": student.name,
             "schedule": student.schedule,
-            "hasSaidPrayer": false,
+            "hasSaidPrayer": student.hasSaidPrayer,
             "isAbsent": student.isAbsent
         }, options);
     });
     return Promise.all(updates);
+}
+
+export function getPeriod(subject) { // Gets the current period and pass it to front-end safely
+    return wixData.query("Students")
+    .eq("schedule", subject)
+    .find(options)
+    .then((results) => {
+        for (let i = 0; i < results.length; i++) {
+            if(results.items[0]["schedule"][i] == subject) return i
+        }
+    })
 }
 
 export function markAbsent(student) { // Function called in students.js, marks absent students for the period
@@ -134,10 +160,11 @@ export function markAbsent(student) { // Function called in students.js, marks a
     .find(options)
     .then((results) => {
         let buffer = {
+            results.items[0]["hasSaidPrayer"][period] = false
             "_id": results.items[0]["_id"],
             "name": results.items[0]["name"],
             "schedule": results.items[0]["schedule"],
-            "hasSaidPrayer": false,
+            "hasSaidPrayer": results.items[0]["hasSaidPrayer"],
             "isAbsent": true
         }
         return wixData.update("Students", buffer, options)
