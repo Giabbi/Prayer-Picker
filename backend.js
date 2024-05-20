@@ -15,7 +15,7 @@ export function login (email, password){ // Function called in home.js
   .find(options)
   .then((results)=> {
     if (results.items.length == 0){ // Checks for valid class code
-      return 'Invalid Class'
+      return 'Invalid Class Code'
     }
     if (bcrypt.compareSync(password, results.items[0]['password'])){ // Checks for valid password hash, if so then create session id
       let buffer = {
@@ -37,7 +37,7 @@ export function login (email, password){ // Function called in home.js
 
 export function isValid (id){ // Check if the user is logged in for sensitive pages
     return wixData.query('Teachers')
-    .eq ('sessionId',id)
+    .eq ('sessionId', id)
     .find(options)
     .then ((results)=>{
     if (results.items[0]['sessionId'] == id && id != null && results.items[0]['sessionId'])
