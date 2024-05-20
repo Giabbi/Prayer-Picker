@@ -12,7 +12,7 @@ $w.onReady(function () {
 			$w('#text4').text = "Students in " + results
 			queryStudents(results)
 			.then((results1)=>{
-				getPeriod(results1)
+				getPeriod(results)
 				.then((period) => {
 					populateRepeater(results1, period) // Gets students from database and populate repeater
 				})
@@ -44,16 +44,19 @@ export function random_click(event) {
 		$w('#absent').show()
 		
 		$w('#text8').show()
-		getDailyPrayer() // Scrape daily prayer (function in backend)
+		getDailyPrayer() // Scrape daily prayer from backend
 		.then((prayer) => {
 			$w('#text6').show()
 			$w('#prayer').text = prayer
 			$w('#prayer').show()
 			$w('#text8').hide()
-		})
-		queryStudents(subject) // Update the repeater
-		.then((students) => {
-			populateRepeater(students)
+			queryStudents(subject) // Update List
+			.then((students) => {
+				getPeriod(subject)
+				.then((period) => {
+					populateRepeater(students, period)
+				})
+			})
 		})
 	})
 }
