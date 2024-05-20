@@ -4,10 +4,7 @@
          "functionName": "resetAbsence",
          "description": "Resets absence after every period", 
          "executionConfig": {
-            "time": "9:55" // If there is adjusted schedule these time should still be somewhat accurate
-            "time": "11:40"
-            "time": "13:45"
-            "time": "15:00"
+            "time": ["15:25", "16:55", "18:40", "20:45", "22:00"]  // Times are in UTC
          }
      },
      {
