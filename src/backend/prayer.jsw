@@ -1,0 +1,18 @@
+import wixData from 'wix-data';
+import cheerio from 'cheerio';
+
+export function getDailyPrayer() {
+    const url = 'https://www.churchofengland.org/prayer-and-worship/join-us-service-daily-prayer/todays-prayer';
+    
+    return fetch(url)
+      .then(response => response.text())
+      .then(body => {
+        const $ = cheerio.load(body);
+        const dailyPrayer = $('#dailyprayer .inner p').first().text(); 
+        return dailyPrayer;
+      })
+      .catch(err => {
+        console.error('Failed to fetch daily prayer:', err);
+        return 'Error fetching prayer.';
+      });
+  }

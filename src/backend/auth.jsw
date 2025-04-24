@@ -1,0 +1,121 @@
+import wixData from 'wix-data';
+import {fetch} from 'wix-fetch';
+
+const bcrypt = require('bcrypt');
+
+const options = {
+    'suppressAuth':true
+}
+
+export function login (email, password){
+    return wixData.query('Teachers')
+    .eq('email', email)
+    .find(options)
+    .then((results)=> {
+    if (results.items.length == 0){
+        return 'Invalid Class Code'
+    }
+    if (bcrypt.compareSync(password, results.items[0]['password'])){
+
+        if(bcrypt.compareSync(email, results.items[0]['password'])) return "Psw reset";
+
+        let buffer = {
+        "_id" : results.items[0]['_id'],
+        "email" : results.items[0]['email'],
+        "password" : results.items[0]['password'],
+        "classes": results.items[0]['classes'],
+        "sessionId" : crypto.randomBytes(127).toString('hex'),
+        "timestamp" : Date.now()
+        }
+        return wixData.update('Teachers',buffer,options)
+        .then(()=>{
+            return buffer['sessionId']
+        })
+    }
+    else return 'Invalid Password'
+    })
+}
+
+export function resetPassword(username, oldPassword, newPassword) {
+    return wixData.query("Teachers")
+    .eq("email", username)
+    .find(options)
+    .then ((results) => {
+        console.log(results)
+        if ((bcrypt.compareSync(oldPassword, results.items[0]['password']))) {
+            if (newPassword.length < 12) return "New password must be at least 12 characters"
+            
+            let numbers = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+            for (let i = 0; i < newPassword.length; i++) {
+                if (numbers.includes(newPassword[i])) {
+                    break;
+                }
+                if (i == newPassword.length - 1) {
+                    return "Password must contain a number";
+                }
+            }
+            let specialChar = ["!", ".", "@", "?", "_"];
+            for (let i = 0; i < newPassword.length; i++) {
+                if (specialChar.includes(newPassword[i])) {
+                    break;
+                }
+                if (i == newPassword.length - 1) {
+                    return "Password must contain one of these special characters  \"!\", \".\", \"@\", \"?\", \"_\"";
+                }
+            }
+            return bcrypt.hash(newPassword, 12)
+            .then((hash) => {
+                let buffer = {
+                    _id: results.items[0]["_id"],
+                    email: results.items[0]["email"],
+                    password: hash,
+                    sessionId: results.items[0]["sessionId"],
+                    timestamp: results.items[0]["timestamp"],
+                    classes: results.items[0]["classes"]
+                }
+                return wixData.update("Teachers", buffer, options)
+                .then(() => {
+                    return "Password updated successfully, please log in again with the new password"
+                })
+            })
+
+        } else return "Wrong old password"
+    })
+}
+
+export function isValid (id){
+    return wixData.query('Teachers')
+    .eq ('sessionId', id)
+    .find(options)
+    .then ((results)=>{
+    if (results.items[0]['sessionId'] == id && id != null && results.items[0]['sessionId'])
+        return results.items[0]['classes']
+    else return ' '
+    })
+}
+
+export function resetValid() {
+    const oneHourAgo = Date.now() - 60 * 60 * 1000; 
+    wixData.query('Teachers') 
+    .le('timestamp', oneHourAgo) 
+    .find(options)
+    .then(results => {
+      results.items.forEach(item => {
+        let buffer = {
+            "_id": item._id,
+            "email": item["email"],
+            "password": item["password"],
+            "classes": item["classes"],
+            "sessionId": null,
+            "timestamp": null
+        }
+        wixData.update("Teachers", buffer, options)
+        .catch(err => {
+            console.error(`Error removing item ${item._id}: ${err}`);
+          });
+      });
+    })
+    .catch(err => {
+      console.error(`Error querying collection: ${err}`);
+    });
+}

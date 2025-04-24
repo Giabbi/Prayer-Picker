@@ -1,0 +1,33 @@
+@startuml sequence
+actor Teacher
+participant Frontend as "Frontend\n(JS page scripts)"
+participant SessionStorage as "Session Storage"
+participant Backend as "backend.jsw"
+participant StudentsDB as "Students\nCollection"
+participant Scraper as "Prayer\nScraper"
+
+Teacher -> Frontend: click "Pick Random Student"
+Frontend -> SessionStorage: getItem('class')
+Frontend -> Backend: selectStudent(class)
+Backend -> StudentsDB: query(schedule = class)
+alt some students haven't prayed
+    Backend -> StudentsDB: update chosen.hasSaidPrayer
+else all have prayed
+    Backend -> StudentsDB: resetHasSaidPrayer(all, period)
+    Backend -> StudentsDB: update newChosen.hasSaidPrayer
+end
+StudentsDB --> Backend: confirmation
+Backend --> Frontend: return studentName
+Frontend -> Frontend: display studentName & show "Mark Absent"
+Frontend -> Backend: getDailyPrayer()
+Backend -> Scraper: fetch("today’s prayer")
+Scraper --> Backend: dailyPrayerText
+Backend --> Frontend: return dailyPrayerText
+Frontend -> Frontend: display prayerText
+Frontend -> Backend: queryStudents(class)
+Backend -> StudentsDB: query(schedule = class)
+StudentsDB --> Backend: studentsList
+Backend -> Backend: getPeriod(class)
+Backend --> Frontend: studentsList + period
+Frontend -> Frontend: populateRepeater(studentsList, period)
+@enduml

@@ -1,0 +1,42 @@
+@startuml component
+package Frontend {
+  [Login Page JS] as F1
+  [Students Page JS] as F2
+  [Password Reset JS] as F3
+}
+
+package Backend {
+  [backend.jsw\n(web-modules)] as B
+}
+
+package DataStores {
+  [Teachers Collection] as T
+  [Students Collection] as S
+}
+
+package Services {
+  [Church of England Scraper] as Scraper
+  [Wix Scheduler] as Scheduler
+}
+
+package Browser {
+  [Session Storage] as Session
+  [Wix Location] as Location
+}
+
+F1 --> B : login(), resetPassword()
+F2 --> B : selectStudent(), getDailyPrayer(),\nqueryStudents(), markAbsent()
+F3 --> B : resetPassword()
+
+B --> T : CRUD
+B --> S : CRUD
+B --> Scraper : fetch
+Scheduler --> B : resetAbsence()
+
+F1 --> Session : session.setItem()/getItem()
+F2 --> Session : session.setItem()/getItem()
+
+F1 --> Location : to(), redirect
+F2 --> Location : to(), redirect
+F3 --> Location : to(), redirect
+@enduml

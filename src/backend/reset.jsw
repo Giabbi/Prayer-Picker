@@ -1,0 +1,43 @@
+import wixData from 'wix-data';
+
+const options = {
+  'suppressAuth':true
+}
+
+export function resetHasSaidPrayer(students, period) {
+    const updates = students.map(student => {
+        student.hasSaidPrayer[period] = false
+        return wixData.update("Students", {
+            "_id": student._id,
+            "name": student.name,
+            "schedule": student.schedule,
+            "hasSaidPrayer": student.hasSaidPrayer,
+            "isAbsent": student.isAbsent
+        }, options);
+    });
+    return Promise.all(updates);
+}
+
+
+
+export function resetAbsence() {
+  return wixData.query("Students")
+    .limit(1000) // ensures we get up to 1000 records in one query
+    .find(options)
+    .then((results) => {
+      // Create an array of updated items, making isAbsent = false
+      const updatedItems = results.items.map(student => {
+        return {
+          ...student,          // spread the original student item
+          isAbsent: false      // reset to false
+        };
+      });
+
+      // Use bulkUpdate so we only do one backend call
+      return wixData.bulkUpdate("Students", updatedItems, options);
+    })
+    .catch((error) => {
+      console.error("resetAbsence bulkUpdate error:", error);
+      throw error;
+    });
+}

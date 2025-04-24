@@ -1,0 +1,103 @@
+import wixData from 'wix-data';
+
+var crypto = require('crypto');
+
+const options = {
+    'suppressAuth':true
+}
+
+export function queryStudents(subject) {
+    return wixData.query('Students')
+    .eq ('schedule',subject)
+    .find (options)
+    .then ((results)=>{
+        return results.items
+    })
+}
+
+export function selectStudent(subject) {
+    return wixData.query("Students")
+    .eq("schedule", subject)
+    .find(options)
+    .then((results) => {
+        let newList = []
+        let notAbsent = []
+        var period = 0
+        for (let i = 0; i < results.items.length; i++) {
+            if (results.items[0]["schedule"][i] == subject) {
+                period = i
+                break
+            }
+        }
+        for(let i = 0; i < results.items.length; i++) {
+            if(!results.items[i]["hasSaidPrayer"][period] && !results.items[i]["isAbsent"]) newList.push(results.items[i])
+            if(!results.items[i]["isAbsent"]) notAbsent.push(results.items[i])
+        }
+        let pick = 0
+        if(newList.length == 0) {
+            return resetHasSaidPrayer(results.items, period)
+                .then(() => {
+                    let pick = crypto.randomInt(0, notAbsent.length);
+                    let student = notAbsent[pick]
+                    student["hasSaidPrayer"][period] = true
+                    let buffer = {
+                        "_id": student["_id"],
+                        "name": student["name"],
+                        "schedule": student["schedule"],
+                        "hasSaidPrayer": student["hasSaidPrayer"],
+                        "isAbsent": false
+                    }
+                    return wixData.update("Students", buffer, options)
+                    .then(() => {
+                        return student["name"]
+                    })
+                });
+        }
+        else {
+            pick = crypto.randomInt(0, newList.length)
+            let student = newList[pick]
+            student["hasSaidPrayer"][period] = true
+            let buffer = {
+                "_id": student["_id"],
+                "name": student["name"],
+                "schedule": student["schedule"],
+                "hasSaidPrayer": student["hasSaidPrayer"],
+                "isAbsent": false
+            }
+            return wixData.update("Students", buffer, options)
+            .then(() => {
+                return student["name"]
+            })
+        }
+    })
+}
+
+export function getPeriod(subject) {
+    return wixData.query("Students")
+    .eq("schedule", subject)
+    .find(options)
+    .then((results) => {
+        for (let i = 0; i < results.items[0]["schedule"].length; i++) {
+            if(results.items[0]["schedule"][i] == subject) {
+                return i
+            }
+        }
+    })
+}
+
+export function markAbsent(student, period) {
+    return wixData.query("Students")
+    .eq("name", student)
+    .find(options)
+    .then((results) => {
+        results.items[0]["hasSaidPrayer"][period] = false
+        let buffer = {
+            "_id": results.items[0]["_id"],
+            "name": results.items[0]["name"],
+            "schedule": results.items[0]["schedule"],
+            "hasSaidPrayer": results.items[0]["hasSaidPrayer"],
+            "isAbsent": true
+        }
+        return wixData.update("Students", buffer, options)
+    })
+}
